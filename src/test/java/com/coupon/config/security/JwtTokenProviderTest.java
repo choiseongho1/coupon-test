@@ -58,8 +58,9 @@ class JwtTokenProviderTest {
         assertNotNull(token);
         
         // 토큰 검증
+        Key key = (Key) ReflectionTestUtils.getField(jwtTokenProvider, "key");
         Claims claims = Jwts.parserBuilder()
-                .setSigningKey(ReflectionTestUtils.getField(jwtTokenProvider, "key"))
+                .setSigningKey(key)
                 .build()
                 .parseClaimsJws(token)
                 .getBody();

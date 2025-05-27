@@ -68,8 +68,6 @@ class AuthServiceTest {
                 .build();
                 
         authentication = new UsernamePasswordAuthenticationToken(TEST_EMAIL, null, user.getAuthorities());
-        
-        when(passwordEncoder.encode(anyString())).thenReturn("encodedPassword");
     }
 
     @Test
@@ -108,6 +106,7 @@ class AuthServiceTest {
         when(userRepository.existsByEmail(TEST_EMAIL)).thenReturn(false);
         when(userRepository.save(any(User.class))).thenReturn(user);
         when(tokenProvider.createToken(TEST_EMAIL)).thenReturn(TEST_TOKEN);
+        when(passwordEncoder.encode(TEST_PASSWORD)).thenReturn("encodedPassword");
 
         // when
         TokenResponse response = authService.register(TEST_EMAIL, TEST_PASSWORD, TEST_NAME);

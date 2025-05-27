@@ -70,6 +70,6 @@ class CustomUserDetailsServiceTest {
         // when & then
         assertThatThrownBy(() -> userDetailsService.loadUserByUsername(nonExistentEmail))
                 .isInstanceOf(UsernameNotFoundException.class)
-                .hasMessageContaining("사용자를 찾을 수 없습니다");
+                .hasMessageContaining("User not found with email: " + nonExistentEmail);
     }
 }

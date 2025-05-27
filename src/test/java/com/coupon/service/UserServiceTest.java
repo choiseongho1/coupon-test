@@ -49,9 +49,6 @@ class UserServiceTest {
                 .password("encodedPassword") // Mock the encoded password
                 .build();
         ReflectionTestUtils.setField(user, "id", 1L);
-        
-        // Setup passwordEncoder mock
-        when(passwordEncoder.encode(any(String.class))).thenReturn("encodedPassword");
     }
 
     @Test
@@ -60,6 +57,7 @@ class UserServiceTest {
         // given
         given(userRepository.existsByEmail(registerRequest.getEmail())).willReturn(false);
         given(userRepository.save(any(User.class))).willReturn(user);
+        given(passwordEncoder.encode(registerRequest.getPassword())).willReturn("encodedPassword");
 
         // when
         UserResponse response = userService.registerUser(registerRequest);
@@ -72,6 +70,7 @@ class UserServiceTest {
         
         verify(userRepository).existsByEmail(registerRequest.getEmail());
         verify(userRepository).save(any(User.class));
+        verify(passwordEncoder).encode(registerRequest.getPassword());
     }
 
     @Test
