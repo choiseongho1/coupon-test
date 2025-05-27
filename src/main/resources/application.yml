@@ -16,6 +16,12 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.H2Dialect
+  # Redis 설정
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 5000  # 5초
 
 jwt:
   secret: your-secret-key-12345678901234567890123456789012  # 32자 이상의 시크릿 키

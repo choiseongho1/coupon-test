@@ -12,6 +12,19 @@ spring:
     driver-class-name: org.h2.Driver
     username: sa
     password: 
+  # Test Redis Configuration (will be overridden by TestContainers)
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 1000
+      lettuce:
+        shutdown-timeout: 100ms
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 1
+          max-wait: -1ms
 
 jwt:
   secret: test-secret-key-12345678901234567890123456789012
