@@ -83,4 +83,17 @@ public class Coupon {
         }
         this.remainingQuantity--;
     }
+    
+    /**
+     * 테스트 목적으로 쿠폰의 남은 수량을 직접 설정합니다.
+     * 실제 운영 환경에서는 사용하지 않아야 합니다.
+     * 
+     * @param quantity 설정할 남은 수량
+     */
+    public void updateRemainingQuantity(int quantity) {
+        if (quantity < 0) {
+            throw new IllegalArgumentException("Remaining quantity must be greater than or equal to 0");
+        }
+        this.remainingQuantity = quantity;
+    }
 }
