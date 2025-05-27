@@ -12,6 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
@@ -22,12 +23,16 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class UserServiceTest {
 
     @Mock
     private UserRepository userRepository;
+    
+    @Mock
+    private PasswordEncoder passwordEncoder;
 
     @InjectMocks
     private UserService userService;
@@ -37,12 +42,16 @@ class UserServiceTest {
 
     @BeforeEach
     void setUp() {
-        registerRequest = new UserRegisterRequest("test@example.com", "테스트사용자");
+        registerRequest = new UserRegisterRequest("test@example.com", "테스트사용자", "password123!");
         user = User.builder()
                 .email(registerRequest.getEmail())
                 .name(registerRequest.getName())
+                .password("encodedPassword") // Mock the encoded password
                 .build();
         ReflectionTestUtils.setField(user, "id", 1L);
+        
+        // Setup passwordEncoder mock
+        when(passwordEncoder.encode(any(String.class))).thenReturn("encodedPassword");
     }
 
     @Test

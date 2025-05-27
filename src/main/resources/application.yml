@@ -17,6 +17,10 @@ spring:
         format_sql: true
         dialect: org.hibernate.dialect.H2Dialect
 
+jwt:
+  secret: your-secret-key-12345678901234567890123456789012  # 32자 이상의 시크릿 키
+  token-validity-in-seconds: 86400  # 24시간 (초 단위)
+
 logging:
   level:
     org.hibernate.SQL: debug
