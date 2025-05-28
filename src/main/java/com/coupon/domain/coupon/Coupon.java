@@ -35,9 +35,13 @@ public class Coupon {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
+    
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    private CouponStatus status = CouponStatus.ACTIVE;
 
     @Builder
-    public Coupon(String title, Integer totalQuantity, LocalDateTime validFrom, LocalDateTime validTo) {
+    public Coupon(String title, Integer totalQuantity, LocalDateTime validFrom, LocalDateTime validTo, CouponStatus status) {
         if (totalQuantity == null || totalQuantity <= 0) {
             throw new IllegalArgumentException("Total quantity must be greater than 0");
         }
@@ -53,6 +57,19 @@ public class Coupon {
         this.remainingQuantity = totalQuantity;
         this.validFrom = validFrom;
         this.validTo = validTo;
+        this.status = status != null ? status : CouponStatus.ACTIVE;
+    }
+
+    @Builder
+    public Coupon(String title, Integer totalQuantity, LocalDateTime validFrom, LocalDateTime validTo, CouponStatus status, Long id) {
+        
+        this.title = title;
+        this.totalQuantity = totalQuantity;
+        this.remainingQuantity = totalQuantity;
+        this.validFrom = validFrom;
+        this.validTo = validTo;
+        this.status = status != null ? status : CouponStatus.ACTIVE;
+        this.id = id;
     }
 
     public void decreaseRemainingQuantity() {
@@ -68,7 +85,8 @@ public class Coupon {
      */
     public boolean isIssuable() {
         LocalDateTime now = LocalDateTime.now();
-        return remainingQuantity > 0 && 
+        return status == CouponStatus.ACTIVE && 
+               remainingQuantity > 0 && 
                !now.isBefore(validFrom) && 
                !now.isAfter(validTo);
     }
@@ -95,5 +113,19 @@ public class Coupon {
             throw new IllegalArgumentException("Remaining quantity must be greater than or equal to 0");
         }
         this.remainingQuantity = quantity;
+        
+        // 재고가 0이 되면 상태를 EXHAUSTED로 변경
+        if (quantity == 0 && this.status == CouponStatus.ACTIVE) {
+            this.status = CouponStatus.EXHAUSTED;
+        }
+    }
+    
+    /**
+     * 쿠폰의 상태를 변경합니다.
+     * 
+     * @param status 변경할 상태
+     */
+    public void setStatus(CouponStatus status) {
+        this.status = status;
     }
 }

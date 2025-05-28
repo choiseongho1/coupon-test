@@ -15,6 +15,12 @@ public class CouponIssueResponse {
     
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private final LocalDateTime issuedAt;
+    
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
+    private final LocalDateTime validFrom;
+    
+    @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
+    private final LocalDateTime validTo;
 
     public CouponIssueResponse(CouponIssue couponIssue) {
         this.id = couponIssue.getId();
@@ -22,6 +28,8 @@ public class CouponIssueResponse {
         this.couponId = couponIssue.getCoupon().getId();
         this.couponTitle = couponIssue.getCoupon().getTitle();
         this.issuedAt = couponIssue.getIssuedAt();
+        this.validFrom = couponIssue.getCoupon().getValidFrom();
+        this.validTo = couponIssue.getCoupon().getValidTo();
     }
     
     public CouponIssueResponse(Long id, Long userId, Long couponId, LocalDateTime issuedAt) {
@@ -30,5 +38,18 @@ public class CouponIssueResponse {
         this.couponId = couponId;
         this.couponTitle = ""; // This will be set to empty string as we don't have the title in this context
         this.issuedAt = issuedAt;
+        this.validFrom = null;
+        this.validTo = null;
+    }
+    
+    public CouponIssueResponse(Long id, Long userId, Long couponId, LocalDateTime issuedAt, 
+                             String couponTitle, LocalDateTime validFrom, LocalDateTime validTo) {
+        this.id = id;
+        this.userId = userId;
+        this.couponId = couponId;
+        this.couponTitle = couponTitle;
+        this.issuedAt = issuedAt;
+        this.validFrom = validFrom;
+        this.validTo = validTo;
     }
 }

@@ -19,8 +19,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.DayOfWeek;
+import java.time.temporal.TemporalAdjusters;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import com.coupon.domain.coupon.CouponStatus;
+import com.coupon.dto.coupon.CouponStatisticsResponse;
 
 @Slf4j
 @Service
@@ -33,6 +40,12 @@ public class CouponService {
     private final UserService userService;
     private final RedisService redisService;
 
+    /**
+     * 새로운 쿠폰을 생성합니다.
+     * 
+     * @param request 쿠폰 생성 요청 정보 (제목, 수량, 유효기간 등)
+     * @return 생성된 쿠폰 정보
+     */
     @Transactional
     public CouponResponse createCoupon(CouponCreateRequest request) {
         Coupon coupon = Coupon.builder()
@@ -50,6 +63,18 @@ public class CouponService {
         return new CouponResponse(savedCoupon);
     }
 
+    /**
+     * 사용자에게 쿠폰을 발급합니다. Redis를 활용한 분산 락을 사용하여 동시성을 제어합니다.
+     * 
+     * @param userId 쿠폰을 발급받을 사용자 ID
+     * @param couponId 발급할 쿠폰 ID
+     * @return 쿠폰 발급 결과 정보
+     * @throws CouponAlreadyIssuedException 이미 발급받은 쿠폰인 경우
+     * @throws CouponExhaustedException 쿠폰 재고가 소진된 경우
+     * @throws CouponExpiredException 쿠폰 기간이 만료되었거나 아직 시작되지 않은 경우
+     * @throws DailyLimitExceededException 하루 발급 횟수 제한을 초과한 경우
+     * @throws InternalServerException 발급 처리 중 오류가 발생한 경우
+     */
     @Transactional
     public CouponIssueResponse issueCoupon(Long userId, Long couponId) {
         log.info("Attempting to issue coupon - userId: {}, couponId: {}", userId, couponId);
@@ -125,7 +150,7 @@ public class CouponService {
                     savedCouponIssue.getIssuedAt()
             );
             
-        } catch (CouponAlreadyIssuedException | CouponExhaustedException | CouponExpiredException e) {
+        } catch (CouponAlreadyIssuedException | CouponExhaustedException | CouponExpiredException | DailyLimitExceededException e) {
             // 이미 처리된 비즈니스 예외는 그대로 전파
             throw e;
         } catch (Exception e) {
@@ -135,6 +160,16 @@ public class CouponService {
     }
     
 
+    /**
+     * 쿠폰 발급 전 유효성을 검증합니다.
+     * 
+     * @param user 쿠폰을 발급받을 사용자
+     * @param coupon 발급할 쿠폰
+     * @throws CouponExpiredException 쿠폰 기간이 만료되었거나 아직 시작되지 않은 경우
+     * @throws CouponExhaustedException 쿠폰 재고가 소진된 경우
+     * @throws CouponAlreadyIssuedException 이미 발급받은 쿠폰인 경우
+     * @throws DailyLimitExceededException 하루 발급 횟수 제한을 초과한 경우
+     */
     private void validateCouponIssue(User user, Coupon coupon) {
         // 1. 쿠폰 기간 검증
         LocalDateTime now = LocalDateTime.now();
@@ -161,9 +196,110 @@ public class CouponService {
         }
     }
 
+    /**
+     * 모든 쿠폰 목록을 조회합니다.
+     * 
+     * @return 쿠폰 목록
+     */
     public List<CouponResponse> getAllCoupons() {
         return couponRepository.findAll().stream()
                 .map(CouponResponse::new)
                 .collect(Collectors.toList());
+    }
+    
+    /**
+     * 사용자가 발급받은 쿠폰 목록을 조회합니다.
+     * 
+     * @param userId 사용자 ID
+     * @return 사용자가 발급받은 쿠폰 목록
+     */
+    public List<CouponIssueResponse> getIssuedCoupons(Long userId) {
+        // 사용자 존재 확인
+        userService.findById(userId);
+        
+        // 발급받은 쿠폰 목록 조회
+        return couponIssueRepository.findByUserIdWithCoupon(userId).stream()
+                .map(couponIssue -> new CouponIssueResponse(
+                        couponIssue.getId(),
+                        couponIssue.getUser().getId(),
+                        couponIssue.getCoupon().getId(),
+                        couponIssue.getIssuedAt(),
+                        couponIssue.getCoupon().getTitle(),
+                        couponIssue.getCoupon().getValidFrom(),
+                        couponIssue.getCoupon().getValidTo()
+                ))
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * 특정 쿠폰의 발급 통계를 조회합니다.
+     * 
+     * @param couponId 쿠폰 ID
+     * @return 쿠폰 발급 통계 정보
+     */
+    public CouponStatisticsResponse getCouponStatistics(Long couponId) {
+        // 쿠폰 조회
+        Coupon coupon = couponRepository.findById(couponId)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 쿠폰입니다. id=" + couponId));
+        
+        // 통계 기간 계산
+        LocalDate today = LocalDate.now();
+        LocalDateTime startOfToday = today.atStartOfDay();
+        LocalDateTime endOfToday = today.atTime(LocalTime.MAX);
+        
+        LocalDate monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDateTime startOfWeek = monday.atStartOfDay();
+        LocalDateTime endOfWeek = monday.plusDays(6).atTime(LocalTime.MAX);
+        
+        LocalDate firstDayOfMonth = today.withDayOfMonth(1);
+        LocalDateTime startOfMonth = firstDayOfMonth.atStartOfDay();
+        LocalDateTime endOfMonth = today.with(TemporalAdjusters.lastDayOfMonth()).atTime(LocalTime.MAX);
+        
+        // 발급 통계 조회
+        long issuedToday = couponIssueRepository.countByCouponIdIssuedToday(couponId, today);
+        long issuedThisWeek = couponIssueRepository.countByCouponIdIssuedThisWeek(couponId, startOfWeek, endOfWeek);
+        long issuedThisMonth = couponIssueRepository.countByCouponIdIssuedThisMonth(couponId, startOfMonth, endOfMonth);
+        
+        return CouponStatisticsResponse.from(coupon, issuedToday, issuedThisWeek, issuedThisMonth);
+    }
+    
+    /**
+     * 전체 쿠폰 발급 현황 통계를 조회합니다.
+     * 
+     * @return 전체 쿠폰 발급 통계 정보
+     */
+    public CouponStatisticsResponse getAllCouponsStatistics() {
+        // 쿠폰 상태별 수량 조회
+        int totalCoupons = (int) couponRepository.count();
+        int activeCoupons = (int) couponRepository.countByStatus(CouponStatus.ACTIVE);
+        int expiredCoupons = (int) couponRepository.countByStatus(CouponStatus.EXPIRED);
+        int exhaustedCoupons = (int) couponRepository.countByStatus(CouponStatus.EXHAUSTED);
+        
+        // 쿠폰 총 수량 및 남은 수량 조회
+        Object[] quantities = couponRepository.getTotalAndRemainingQuantity();
+        int totalQuantity = quantities[0] != null ? ((Number) quantities[0]).intValue() : 0;
+        int remainingQuantity = quantities[1] != null ? ((Number) quantities[1]).intValue() : 0;
+        
+        // 통계 기간 계산
+        LocalDate today = LocalDate.now();
+        
+        LocalDate monday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+        LocalDateTime startOfWeek = monday.atStartOfDay();
+        LocalDateTime endOfWeek = monday.plusDays(6).atTime(LocalTime.MAX);
+        
+        LocalDate firstDayOfMonth = today.withDayOfMonth(1);
+        LocalDateTime startOfMonth = firstDayOfMonth.atStartOfDay();
+        LocalDateTime endOfMonth = today.with(TemporalAdjusters.lastDayOfMonth()).atTime(LocalTime.MAX);
+        
+        // 발급 통계 조회
+        long issuedToday = couponIssueRepository.countAllIssuedToday(today);
+        long issuedThisWeek = couponIssueRepository.countAllIssuedThisWeek(startOfWeek, endOfWeek);
+        long issuedThisMonth = couponIssueRepository.countAllIssuedThisMonth(startOfMonth, endOfMonth);
+        
+        return CouponStatisticsResponse.forAllCoupons(
+                totalCoupons, activeCoupons, expiredCoupons, exhaustedCoupons,
+                totalQuantity, remainingQuantity,
+                issuedToday, issuedThisWeek, issuedThisMonth
+        );
     }
 }

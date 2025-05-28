@@ -27,6 +27,13 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
 
+    /**
+     * 사용자 로그인을 처리합니다.
+     * 
+     * @param loginRequest 로그인 요청 정보 (이메일, 비밀번호)
+     * @return JWT 토큰 응답
+     * @throws LoginFailException 로그인에 실패한 경우
+     */
     @Transactional(readOnly = true)
     public TokenResponse login(LoginRequest loginRequest) {
         try {
@@ -45,6 +52,15 @@ public class AuthService {
         }
     }
 
+    /**
+     * 새로운 사용자를 등록합니다.
+     * 
+     * @param email 사용자 이메일
+     * @param password 비밀번호
+     * @param name 사용자 이름
+     * @return JWT 토큰 응답
+     * @throws DuplicateEmailException 이미 존재하는 이메일인 경우
+     */
     @Transactional
     public TokenResponse register(String email, String password, String name) {
         // 이메일 중복 체크
